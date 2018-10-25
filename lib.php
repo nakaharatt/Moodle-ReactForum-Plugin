@@ -3954,6 +3954,7 @@ function reactforum_print_discussion_header(&$post, $reactforum, $group = -1, $d
 
     $post->subject = format_string($post->subject,true);
 
+    $canviewfullnames = has_capability('moodle/site:viewfullnames', $modcontext);
     $timeddiscussion = !empty($CFG->reactforum_enabletimedposts) && ($post->timestart || $post->timeend);
     $timedoutsidewindow = '';
     if ($timeddiscussion && ($post->timestart > time() || ($post->timeend != 0 && $post->timeend < time()))) {
@@ -3961,6 +3962,14 @@ function reactforum_print_discussion_header(&$post, $reactforum, $group = -1, $d
     }
 
     echo "\n\n";
+    
+    //User
+    $postuser = new stdClass();
+    $postuserfields = explode(',', user_picture::fields());
+    $postuser = username_load_fields_from_object($postuser, $post, null, $postuserfields);
+    $postuser->id = $post->userid;
+    $fullname = fullname($postuser, has_capability('moodle/site:viewfullnames', $modcontext));
+    
     echo '<tr class="discussion r'.$rowcount.$timedoutsidewindow.'">';
 
     $topicclass = 'topic starter';
@@ -3975,30 +3984,38 @@ function reactforum_print_discussion_header(&$post, $reactforum, $group = -1, $d
     if ($timeddiscussion && $canalwaysseetimedpost) {
         echo $PAGE->get_renderer('mod_reactforum')->timed_discussion_tooltip($post, empty($timedoutsidewindow));
     }
-
-    echo '<a href="'.$CFG->wwwroot.'/mod/reactforum/discuss.php?d='.$post->discussion.'">'.$post->subject.'</a>';
+    $startdate = $post->modified;
+    echo '<a href="'.$CFG->wwwroot.'/mod/reactforum/discuss.php?d='.$post->discussion.'" style="font-size:1.3em">'.$post->subject.'</a>';
+    echo '<div style="text-align:right">Started by '.$fullname.' on '.userdate($startdate, $datestring).'</div>';
     echo "</td>\n";
 
     // Picture
-    $postuser = new stdClass();
-    $postuserfields = explode(',', user_picture::fields());
-    $postuser = username_load_fields_from_object($postuser, $post, null, $postuserfields);
-    $postuser->id = $post->userid;
-    echo '<td class="author">';
-    echo '<span class="picture">';
+    /* No Userimage
+    echo '<td class="picture">';
     echo $OUTPUT->user_picture($postuser, array('courseid'=>$reactforum->course));
-    echo '</span>';
-    echo '<span class="name">';
-    // User name
-    $fullname = fullname($postuser, has_capability('moodle/site:viewfullnames', $modcontext));
-    echo '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$post->userid.'&amp;course='.$reactforum->course.'">'.$fullname.'</a>';
-    echo '</span>';
     echo "</td>\n";
-
+    */
+    // is_guest should be used here as this also checks whether the user is a guest in the current course.
+    // Guests and visitors cannot subscribe - only enrolled users.
+    if ((!is_guest($modcontext, $USER) && isloggedin()) && has_capability('mod/reactforum:viewdiscussion', $modcontext)) {
+        // Discussion subscription.
+        if (\mod_reactforum\subscriptions::is_subscribable($reactforum)) {
+            echo '<td class="discussionsubscription">';
+            echo reactforum_get_discussion_subscription_icon($reactforum, $post->discussion);
+            echo '</td>';
+        }
+    }
+    // User name
+    /*
+    $fullname = fullname($postuser, has_capability('moodle/site:viewfullnames', $modcontext));
+    echo '<td class="author">';
+    echo '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$post->userid.'&amp;course='.$reactforum->course.'">'.$fullname.'</a>';
+    echo "</td>\n";
+    */
     // Group picture
     if ($group !== -1) {  // Groups are active - group is a group data object or NULL
-        echo '<td class="picture group">';
         if (!empty($group->picture) and empty($group->hidepicture)) {
+            echo '<td class="picture group">';
             if ($canviewparticipants && $COURSE->groupmode) {
                 $picturelink = true;
             } else {
@@ -4006,11 +4023,15 @@ function reactforum_print_discussion_header(&$post, $reactforum, $group = -1, $d
             }
             print_group_picture($group, $reactforum->course, false, false, $picturelink);
         } else if (isset($group->id)) {
+            echo '<td class="group">';
             if ($canviewparticipants && $COURSE->groupmode) {
-                echo '<a href="'.$CFG->wwwroot.'/user/index.php?id='.$reactforum->course.'&amp;group='.$group->id.'">'.$group->name.'</a>';
+                //echo '<a href="'.$CFG->wwwroot.'/user/index.php?id='.$reactforum->course.'&amp;group='.$group->id.'">'.$group->name.'</a>'; //LinkText
+                echo $group->name; //not link
             } else {
                 echo $group->name;
             }
+        }else{
+            echo '<td class="group">';
         }
         echo "</td>\n";
     }
@@ -4031,7 +4052,7 @@ function reactforum_print_discussion_header(&$post, $reactforum, $group = -1, $d
                     echo '</a>';
                     echo '<a title="'.$strmarkalldread.'" href="'.$CFG->wwwroot.'/mod/reactforum/markposts.php?f='.
                          $reactforum->id.'&amp;d='.$post->discussion.'&amp;mark=read&amp;returnpage=view.php&amp;sesskey=' . sesskey() . '">' .
-                         $OUTPUT->pix_icon('t/markasread', $strmarkalldread) . '</a>';
+                         '<img src="'.$OUTPUT->pix_url('t/markasread') . '" class="iconsmall" alt="'.$strmarkalldread.'" /></a>';
                     echo '</span>';
                 } else {
                     echo '<span class="read">';
@@ -4056,25 +4077,13 @@ function reactforum_print_discussion_header(&$post, $reactforum, $group = -1, $d
 
     // In QA reactforums we check that the user can view participants.
     if ($reactforum->type !== 'qanda' || $canviewparticipants) {
-        echo '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$post->usermodified.'&amp;course='.$reactforum->course.'">'.
-             fullname($usermodified).'</a><br />';
+        echo fullname($usermodified).'<br />';
         $parenturl = (empty($post->lastpostid)) ? '' : '&amp;parent='.$post->lastpostid;
     }
 
     echo '<a href="'.$CFG->wwwroot.'/mod/reactforum/discuss.php?d='.$post->discussion.$parenturl.'">'.
           userdate($usedate, $datestring).'</a>';
     echo "</td>\n";
-
-    // is_guest should be used here as this also checks whether the user is a guest in the current course.
-    // Guests and visitors cannot subscribe - only enrolled users.
-    if ((!is_guest($modcontext, $USER) && isloggedin()) && has_capability('mod/reactforum:viewdiscussion', $modcontext)) {
-        // Discussion subscription.
-        if (\mod_reactforum\subscriptions::is_subscribable($reactforum)) {
-            echo '<td class="discussionsubscription">';
-            echo reactforum_get_discussion_subscription_icon($reactforum, $post->discussion);
-            echo '</td>';
-        }
-    }
 
     echo "</tr>\n\n";
 
@@ -4108,7 +4117,7 @@ function reactforum_get_discussion_subscription_icon($reactforum, $discussionid,
     }
 
     if ($subscriptionstatus) {
-        $output = $OUTPUT->pix_icon('t/subscribed', get_string('clicktounsubscribe', 'reactforum'), 'mod_reactforum');
+        $output = $OUTPUT->pix_icon('t/on', get_string('clicktounsubscribe', 'reactforum'), 'mod_reactforum');
         if ($includetext) {
             $output .= get_string('subscribed', 'mod_reactforum');
         }
@@ -4122,7 +4131,7 @@ function reactforum_get_discussion_subscription_icon($reactforum, $discussionid,
             ));
 
     } else {
-        $output = $OUTPUT->pix_icon('t/unsubscribed', get_string('clicktosubscribe', 'reactforum'), 'mod_reactforum');
+        $output = $OUTPUT->pix_icon('t/off', get_string('clicktosubscribe', 'reactforum'), 'mod_reactforum');
         if ($includetext) {
             $output .= get_string('notsubscribed', 'mod_reactforum');
         }
@@ -5627,6 +5636,10 @@ function reactforum_print_latest_discussions($course, $reactforum, $maxdiscussio
     }
 
     if ($canstart) {
+        echo '<div class="singlebutton reactforumaddnew">';
+        echo "<form id=\"newdiscussionform\" method=\"get\" action=\"$CFG->wwwroot/mod/reactforum/post.php\">";
+        echo '<div>';
+        echo "<input type=\"hidden\" name=\"reactforum\" value=\"$reactforum->id\" />";
         switch ($reactforum->type) {
             case 'news':
             case 'blog':
@@ -5639,10 +5652,10 @@ function reactforum_print_latest_discussions($course, $reactforum, $maxdiscussio
                 $buttonadd = get_string('addanewdiscussion', 'reactforum');
                 break;
         }
-        $button = new single_button(new moodle_url('/mod/reactforum/post.php', ['reactforum' => $reactforum->id]), $buttonadd, 'get');
-        $button->class = 'singlebutton reactforumaddnew';
-        $button->formid = 'newdiscussionform';
-        echo $OUTPUT->render($button);
+        echo '<input type="submit" value="'.$buttonadd.'" />';
+        echo '</div>';
+        echo '</form>';
+        echo "</div>\n";
 
     } else if (isguestuser() or !isloggedin() or $reactforum->type == 'news' or
         $reactforum->type == 'qanda' and !has_capability('mod/reactforum:addquestion', $context) or
@@ -5715,14 +5728,24 @@ function reactforum_print_latest_discussions($course, $reactforum, $maxdiscussio
         $unreads = array();
     }
 
+    //ここらへんから投稿一覧
     if ($displayformat == 'header') {
         echo '<table cellspacing="0" class="reactforumheaderlist">';
-        echo '<thead>';
+        echo '<thead  class="text-left">';
         echo '<tr>';
         echo '<th class="header topic" scope="col">'.get_string('discussion', 'reactforum').'</th>';
-        echo '<th class="header author" scope="col">'.get_string('startedby', 'reactforum').'</th>';
+        
+
+        if ((!is_guest($context, $USER) && isloggedin()) && has_capability('mod/reactforum:viewdiscussion', $context)) {
+            if (\mod_reactforum\subscriptions::is_subscribable($reactforum)) {
+                echo '<th class="header discussionsubscription" scope="col">'.get_string('follow', 'reactforum');
+                //echo reactforum_get_discussion_subscription_icon_preloaders();
+                echo '</th>';
+            }
+        }
+        //echo '<th class="header author" colspan="1" scope="col">'.get_string('follow', 'reactforum').'</th>';
         if ($groupmode > 0) {
-            echo '<th class="header group" scope="col">'.get_string('group').'</th>';
+            echo '<th class="header group" scope="col" nowrap>'.get_string('group').'</th>';
         }
         if (has_capability('mod/reactforum:viewdiscussion', $context)) {
             echo '<th class="header replies" scope="col">'.get_string('replies', 'reactforum').'</th>';
@@ -5733,19 +5756,12 @@ function reactforum_print_latest_discussions($course, $reactforum, $maxdiscussio
                     echo '<a title="'.get_string('markallread', 'reactforum').
                          '" href="'.$CFG->wwwroot.'/mod/reactforum/markposts.php?f='.
                          $reactforum->id.'&amp;mark=read&amp;returnpage=view.php&amp;sesskey=' . sesskey() . '">'.
-                         $OUTPUT->pix_icon('t/markasread', get_string('markallread', 'reactforum')) . '</a>';
+                         '<img src="'.$OUTPUT->pix_url('t/markasread') . '" class="iconsmall" alt="'.get_string('markallread', 'reactforum').'" /></a>';
                 }
                 echo '</th>';
             }
         }
         echo '<th class="header lastpost" scope="col">'.get_string('lastpost', 'reactforum').'</th>';
-        if ((!is_guest($context, $USER) && isloggedin()) && has_capability('mod/reactforum:viewdiscussion', $context)) {
-            if (\mod_reactforum\subscriptions::is_subscribable($reactforum)) {
-                echo '<th class="header discussionsubscription" scope="col">';
-                echo reactforum_get_discussion_subscription_icon_preloaders();
-                echo '</th>';
-            }
-        }
         echo '</tr>';
         echo '</thead>';
         echo '<tbody>';

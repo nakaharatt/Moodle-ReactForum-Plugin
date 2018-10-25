@@ -570,11 +570,11 @@ $string['yourreply'] = 'あなたの返信';
 
 /** REACTIONS */
 
-$string['reactionstype'] = 'Reaction Buttons Type';
-$string['reactionstype_text'] = 'Text';
-$string['reactionstype_image'] = 'Image';
-$string['reactionstype_discussion'] = 'Decided by discussion owner';
-$string['reactionstype_none'] = 'None';
+$string['reactionstype'] = 'リアクションボタンの種類';
+$string['reactionstype_text'] = 'テキスト';
+$string['reactionstype_image'] = '画像';
+$string['reactionstype_discussion'] = '投稿者が設定';
+$string['reactionstype_none'] = 'なし';
 $string['reactionstype_change_confirmation'] = 'All current reaction buttons will be removed. Are you sure that you want to change reaction type?';
 
 $string['reactions_allreplies'] = 'Apply reaction buttons on replies';
@@ -583,13 +583,15 @@ $string['reactions_allreplies_help'] = 'If this option is checked, reaction butt
 $string['reactions_delayedcounter'] = 'Delayed counter visibility';
 $string['reactions_delayedcounter_help'] = 'If enabled, the counter on the buttons will not be displayed to the students until they click a button.';
 
-$string['reactions'] = 'Reaction Buttons';
-$string['reactions_add'] = 'Add';
-$string['reactions_changeimage'] = 'Change Image';
+$string['reactions'] = 'リアクションボタン';
+$string['reactions_add'] = '追加';
+$string['reactions_changeimage'] = '画像の変更';
 $string['reactions_selectfile'] = 'Please select new reaction image file';
-$string['reactions_cancel'] = 'Cancel';
-$string['reactions_delete'] = 'Delete';
+$string['reactions_cancel'] = 'キャンセル';
+$string['reactions_delete'] = '削除';
 $string['reactions_delete_confirmation'] = 'Are you sure that you want to delete this reaction? All its data will be removed. (You can undo this action by not saving discussion edit)';
-$string['reactions_reupload'] = 'Reupload';
+$string['reactions_reupload'] = '再アップロード';
 
-$string['error'] = 'Unexpected Error';
+$string['error'] = '不明なエラーです';
+
+$string['follow'] = 'フォロー';

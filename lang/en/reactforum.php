@@ -593,3 +593,5 @@ $string['reactions_delete_confirmation'] = 'Are you sure that you want to delete
 $string['reactions_reupload'] = 'Reupload';
 
 $string['error'] = 'Unexpected Error';
+
+$string['follow'] = 'Follow';
